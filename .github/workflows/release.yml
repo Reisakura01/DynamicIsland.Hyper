@@ -20,11 +20,11 @@ jobs:
 
       # 发布为「自包含单文件 exe」——免装 .NET、用户可直接运行/删除
       - name: Publish (single-file, self-contained)
-        run: dotnet publish DynamicIsland.Hyper/DynamicIsland.Hyper.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+        run: dotnet publish HyperMoeland/HyperMoeland.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/DynamicIsland.Hyper.exe
+          files: publish/HyperMoeland.exe
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}
