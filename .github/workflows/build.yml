@@ -25,12 +25,13 @@ jobs:
       - name: Build (Release)
         run: dotnet build DynamicIsland.Hyper.sln -c Release --no-restore
 
-      - name: Publish (win-x64)
-        run: dotnet publish DynamicIsland.Hyper/DynamicIsland.Hyper.csproj -c Release -r win-x64 --self-contained false -o publish
+      # 产出便携「自包含单文件 exe」作为构建工件
+      - name: Publish (single-file, self-contained)
+        run: dotnet publish DynamicIsland.Hyper/DynamicIsland.Hyper.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DynamicIsland.Hyper-win-x64
-          path: publish
+          name: DynamicIsland.Hyper-win-x64-singlefile
+          path: publish/DynamicIsland.Hyper.exe
           retention-days: 14

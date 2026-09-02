@@ -10,3 +10,9 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 artifacts/
+
+# 发布产物 / WiX 临时
+dist/
+publish/
+*.wixpdb
+
