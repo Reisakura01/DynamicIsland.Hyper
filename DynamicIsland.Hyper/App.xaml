@@ -9,5 +9,9 @@
         <SolidColorBrush x:Key="Theme.Muted"     Color="#FF5F5F5F" />
         <SolidColorBrush x:Key="Theme.Border"    Color="#40000000" />
         <SolidColorBrush x:Key="Theme.Overlay"   Color="#E6F5F5F7" />
+        <!-- 充电指示色：醒目绿色（日夜间一致）。必须在 App 资源里注册默认值，
+             否则 DynamicResource 在 ThemeManager.Apply 未触发时找不到该 key，
+             Path.Fill 为空导致闪电不渲染（只占位不显示）。 -->
+        <SolidColorBrush x:Key="Theme.Charging"  Color="#FF00C27A" />
     </Application.Resources>
 </Application>

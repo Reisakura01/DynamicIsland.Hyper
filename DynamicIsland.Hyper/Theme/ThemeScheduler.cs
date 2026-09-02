@@ -13,7 +13,7 @@ internal sealed class ThemeScheduler
     public int DayStartHour { get; set; } = 6;
 
     /// <summary>夜间开始小时（含）。</summary>
-    public int NightStartHour { get; set; } = 18;
+    public int NightStartHour { get; set; } = 19;
 
     /// <summary>主题模式：自动/强制浅色/强制深色。</summary>
     public ThemePreference Mode { get; set; } = ThemePreference.Auto;

@@ -3,8 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using System.Windows.Threading;
+using DynamicIsland.Hyper.Services;
 
 namespace DynamicIsland.Hyper.Views;
 
@@ -22,6 +25,9 @@ public partial class ExpandedCard : UserControl
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _notificationTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private readonly DispatcherTimer _neonTimer = new() { Interval = TimeSpan.FromMilliseconds(900) }; // 约66BPM舒缓呼吸
+    private readonly UIElement[] _neonLayers; // 每个元素为一种固定配色（已缓存为静态位图）
+    private int _neonIdx;
     private double? _progressRatio;
     private double _currentDuration;
     private bool _liked;
@@ -29,11 +35,125 @@ public partial class ExpandedCard : UserControl
     public ExpandedCard()
     {
         InitializeComponent();
+        _neonLayers = new UIElement[] { NeonLayer0, NeonLayer1, NeonLayer2 };
+        AssignNeonBitmaps();
         _clock.Tick += (_, _) => UpdateClock();
         _clock.Start();
         _notificationTimer.Tick += (_, _) => { NotificationText.Visibility = Visibility.Collapsed; _notificationTimer.Stop(); };
+        _neonTimer.Tick += (_, _) => PulseNeon();
         ProgressTrack.SizeChanged += (_, _) => ApplyProgressRatio();
         UpdateClock();
+    }
+
+    /// <summary>为每个配色层生成一幅"带抖动的霓虹渐变位图"（消除 8bit 渐变带/摩尔纹），并铺满整层。</summary>
+    private void AssignNeonBitmaps()
+    {
+        // 每组配色：中段色 + 底部色（顶部透明，向下增强；半透明渐变位图天然消除 banding）
+        var sets = new[]
+        {
+            (Mid: Color.FromRgb(0x5E, 0xE8, 0xF8), Low: Color.FromRgb(0x9B, 0x74, 0xE8)), // 浅青→淡紫
+            (Mid: Color.FromRgb(0xF8, 0x9B, 0xCB), Low: Color.FromRgb(0x9B, 0x74, 0xE8)), // 浅粉→淡紫
+            (Mid: Color.FromRgb(0x8B, 0xCB, 0xF8), Low: Color.FromRgb(0x7E, 0xE8, 0xE0)), // 淡蓝→淡青
+        };
+        // 固定分辨率用 2×（920×500），避免位图被 ImageBrush 拉伸放大时产生重采样带纹
+        const int w = 920, h = 500;
+        var brushes = new Brush[sets.Length];
+        for (int i = 0; i < sets.Length; i++)
+            brushes[i] = CreateDitheredNeonBrush(sets[i].Mid, sets[i].Low, w, h);
+
+        NeonLayer0.Background = brushes[0];
+        NeonLayer1.Background = brushes[1];
+        NeonLayer2.Background = brushes[2];
+        foreach (var b in brushes) b.Freeze();
+    }
+
+    /// <summary>垂直霓虹渐变（上半透明，下半发光），对 RGB 与 alpha 通道都加噪声打散色带。
+    /// 关键：这是半透明层，合成结果 = 霓虹色×alpha + 卡片色×(1−alpha)，因此 alpha 通道的 8bit
+    /// 量化步进才是残余 banding/摩尔纹的主因——必须连同 alpha 一起抖动。</summary>
+    private static Brush CreateDitheredNeonBrush(Color mid, Color low, int w, int h)
+    {
+        const int MaxAlpha = 0xD8;                 // 底部最大不透明度
+        const int Dither = 8;                      // 抖动幅度（每通道 ±8，肉眼不可见，能打断色带）
+        var rnd = new Random(1234);
+        var pixels = new byte[w * h * 4];          // BGRA
+
+        for (int y = 0; y < h; y++)
+        {
+            double t = y / (double)(h - 1);        // 0..1 向下
+            // 顶部 40% 透明，向下线性增强
+            double aF = t <= 0.4 ? 0 : (t - 0.4) / 0.6;
+            int a = (int)Math.Clamp(aF * MaxAlpha, 0, MaxAlpha);
+            // 颜色从中段色过渡到低段色
+            var c = Lerp(mid, low, t);
+            for (int x = 0; x < w; x++)
+            {
+                int idx = (y * w + x) * 4;
+                int dB = rnd.Next(-Dither, Dither + 1);
+                int dG = rnd.Next(-Dither, Dither + 1);
+                int dR = rnd.Next(-Dither, Dither + 1);
+                pixels[idx + 0] = ClampB(c.B + dB);                 // B
+                pixels[idx + 1] = ClampB(c.G + dG);                 // G
+                pixels[idx + 2] = ClampB(c.R + dR);                 // R
+                pixels[idx + 3] = ClampB(a + rnd.Next(-Dither, Dither + 1)); // A：连同 alpha 一起抖动
+            }
+        }
+
+        var bmp = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, w * 4);
+        bmp.Freeze();
+        var brush = new ImageBrush(bmp) { Stretch = Stretch.UniformToFill };
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Color Lerp(Color a, Color b, double t)
+        => Color.FromRgb(
+            (byte)(a.R + (b.R - a.R) * t),
+            (byte)(a.G + (b.G - a.G) * t),
+            (byte)(a.B + (b.B - a.B) * t));
+
+    private static byte ClampB(double v) => (byte)Math.Clamp(v, 0, 255);
+
+    /// <summary>播放音乐时开启斜切霓虹渐变背景脉动；停止/无媒体时关闭并淡出。</summary>
+    public void SetNeon(bool on)
+    {
+        if (on)
+        {
+            NeonBack.Visibility = Visibility.Visible;
+            var dur = TimeSpan.FromMilliseconds(Math.Clamp(SettingsService.Current.NeonSpeedMs, 400, 2000));
+            _neonTimer.Interval = dur;
+            if (!_neonTimer.IsEnabled) _neonTimer.Start();
+            // 连续平滑呼吸（正弦缓动，幅度更小、更舒缓，避免每帧透明度大幅起伏）
+            NeonBack.BeginAnimation(UIElement.OpacityProperty,
+                new DoubleAnimation(0.30, 0.34, dur)
+                {
+                    AutoReverse = true,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+                    RepeatBehavior = RepeatBehavior.Forever,
+                });
+        }
+        else
+        {
+            _neonTimer.Stop();
+            var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(250));
+            fade.Completed += (_, _) => NeonBack.Visibility = Visibility.Collapsed;
+            NeonBack.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+    }
+
+    /// <summary>每种节拍：在固定配色层之间交叉淡入淡出。交叉时长固定为 350ms 的短窗口，
+    /// 而非整拍间隔，以最小化两层半透明位图同时叠合的时间（避免残余色带/摩尔纹）。</summary>
+    private void PulseNeon()
+    {
+        var next = (_neonIdx + 1) % _neonLayers.Length;
+        var cur = _neonIdx;
+        _neonIdx = next;
+        var dur = TimeSpan.FromMilliseconds(350);
+        var smooth = new SineEase { EasingMode = EasingMode.EaseInOut };
+        // 旧配色层淡出，新配色层淡入
+        _neonLayers[cur].BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, dur) { EasingFunction = smooth });
+        _neonLayers[next].BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(1, dur) { EasingFunction = smooth });
     }
 
     /// <summary>设置媒体信息（null/空白表示无媒体）。</summary>
@@ -123,6 +243,50 @@ public partial class ExpandedCard : UserControl
     /// <summary>设置电量显示。</summary>
     public void SetBattery(double? percent)
         => BatteryText.Text = percent is double p ? $"电量 {p:0}%" : "电量 --";
+
+    private bool _charging;
+
+    /// <summary>插拔电指示：插电时闪电显示并常驻柔和呼吸；拔电时隐藏。
+    /// 基础状态（Visible + Opacity=1 + Scale=1）直接设好，动画只叠加亮度呼吸，绝不改变"是否可见"。</summary>
+    public void SetPowerState(bool charging)
+    {
+        _charging = charging;
+        if (charging)
+        {
+            ChargingIcon.BeginAnimation(UIElement.OpacityProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            ChargingScale.ScaleX = 1;
+            ChargingScale.ScaleY = 1;
+            ChargingIcon.Opacity = 1;
+            ChargingIcon.Visibility = Visibility.Visible;
+            StartChargingBreath();
+        }
+        else
+        {
+            ChargingIcon.BeginAnimation(UIElement.OpacityProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            ChargingScale.ScaleX = 1;
+            ChargingScale.ScaleY = 1;
+            ChargingIcon.Opacity = 1;
+            ChargingIcon.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>常驻充电状态：闪电做柔和呼吸（0.6↔1.0），表示正在充电。</summary>
+    private void StartChargingBreath()
+    {
+        // 若已拔电则不再启动呼吸
+        if (!_charging || ChargingIcon.Visibility != Visibility.Visible) return;
+        ChargingIcon.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0.6, 1.0, TimeSpan.FromMilliseconds(900))
+            {
+                AutoReverse = true,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+                RepeatBehavior = RepeatBehavior.Forever,
+            });
+    }
 
     private void UpdateClock()
     {

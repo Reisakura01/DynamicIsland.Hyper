@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         _themeScheduler.ThemeChanged += OnThemeChanged;
         _media.SessionChanged += OnMediaChanged;
         _battery.ChargePercentChanged += OnBatteryChanged;
+        _battery.PowerStateChanged += OnPowerStateChanged;
         _notifications.NotificationAdded += OnNotificationAdded;
         _foreground.FullscreenChanged += OnFullscreenChanged;
         _foreground.MonitorChanged += OnMonitorChanged;
@@ -236,6 +237,7 @@ public partial class MainWindow : Window
         {
             Pill.SetMedia(null);
             Card.SetMedia(null);
+            Card.SetNeon(false);
         }
         else
         {
@@ -246,6 +248,7 @@ public partial class MainWindow : Window
             // 先立即显示标题（封面流读取可能卡住，不能阻塞标题显示）
             Pill.SetMedia(text, null);
             Card.SetMedia(title, artist, null, info.IsPlaying);
+            Card.SetNeon(info.IsPlaying);
 
             // 封面异步单独加载，拿到后再补上；若期间已切到别的媒体，丢弃旧封面
             var cover = await LoadCoverAsync(info.Thumbnail);
@@ -290,6 +293,14 @@ public partial class MainWindow : Window
     /// <summary>电量变化（WinRT 事件可能在非 UI 线程触发）：封送到 UI 线程再更新。</summary>
     private void OnBatteryChanged(double percent)
         => Dispatcher.InvokeAsync(() => Card.SetBattery(percent));
+
+    /// <summary>插拔电状态变化（WinRT 事件可能在非 UI 线程触发）：封送到 UI 线程，卡片与胶囊同步指示。</summary>
+    private void OnPowerStateChanged(bool charging)
+        => Dispatcher.InvokeAsync(() =>
+        {
+            Card.SetPowerState(charging);
+            Pill.SetPowerState(charging);
+        });
 
     /// <summary>每 500ms 把媒体播放进度推给卡片（小米式时间轴）。</summary>
     private void UpdateProgress()

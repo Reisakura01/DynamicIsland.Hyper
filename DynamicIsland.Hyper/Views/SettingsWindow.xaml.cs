@@ -37,7 +37,12 @@ public partial class SettingsWindow : Window
 
         AutoStartCheck.IsChecked = s.AutoStart;
         AutoUpdateCheck.IsChecked = s.AutoUpdate;
+        NeonSpeedSlider.Value = Math.Clamp(s.NeonSpeedMs, 400, 2000);
+        NeonSpeedLabel.Text = s.NeonSpeedMs + "ms";
     }
+
+    private void OnNeonSpeedChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        => NeonSpeedLabel.Text = ((int)e.NewValue) + "ms";
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
@@ -52,6 +57,7 @@ public partial class SettingsWindow : Window
         s.NightStartHour = Math.Clamp(NightStartBox.SelectedIndex, 0, 23);
         s.AutoStart = AutoStartCheck.IsChecked == true;
         s.AutoUpdate = AutoUpdateCheck.IsChecked == true;
+        s.NeonSpeedMs = (int)NeonSpeedSlider.Value;
 
         SettingsService.Save();
         DialogResult = true;

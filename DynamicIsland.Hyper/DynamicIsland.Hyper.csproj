@@ -15,7 +15,7 @@
     <RootNamespace>DynamicIsland.Hyper</RootNamespace>
     <AssemblyName>DynamicIsland.Hyper</AssemblyName>
     <ApplicationIcon>App.ico</ApplicationIcon>
-    <Version>1.1.0-beta.1</Version>
+    <Version>1.1.0-beta.2</Version>
   </PropertyGroup>
 
   <!--

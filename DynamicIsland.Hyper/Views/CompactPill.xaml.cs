@@ -2,13 +2,15 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace DynamicIsland.Hyper.Views;
 
 /// <summary>
 /// 紧凑态胶囊（小米超级岛风格）：无媒体显示时间；播放音乐显示迷你封面+歌名；
-/// 来新通知时暂时显示通知（发送人/消息），5 秒后复原（回到媒体或时钟）。
+/// 来新通知时暂时显示通知（发送人/消息），5 秒后复原（回到媒体或时钟）；
+/// 插电时在左侧显示 ⚡ 并做柔和呼吸，提示正在充电。
 /// </summary>
 public partial class CompactPill : UserControl
 {
@@ -17,6 +19,7 @@ public partial class CompactPill : UserControl
     private string? _mediaText;
     private string? _notificationText;
     private ImageSource? _cover;
+    private bool _charging;
 
     public CompactPill()
     {
@@ -25,6 +28,56 @@ public partial class CompactPill : UserControl
         _clock.Start();
         _notificationTimer.Tick += (_, _) => { _notificationText = null; Update(); };
         Update();
+    }
+
+    /// <summary>插拔电指示：插电时闪电显示并常驻柔和呼吸；拔电时隐藏。
+    /// 关键：基础状态（Visible + Opacity=1 + Scale=1）直接以固定值设好，动画绝不改变"是否可见"，
+    /// 只叠加一个不透明度的缓慢呼吸，避免任何动画把图标缩成 0 或透明到看不见。</summary>
+    public void SetPowerState(bool charging)
+    {
+        _charging = charging;
+        if (charging)
+        {
+            // 归位基础状态：取消旧动画，固定为可见/不透明/scale=1
+            ChargingIcon.BeginAnimation(OpacityProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            ChargingScale.ScaleX = 1;
+            ChargingScale.ScaleY = 1;
+            ChargingIcon.Opacity = 1;
+            ChargingIcon.Visibility = Visibility.Visible;
+            LG("TRUE->vis=" + ChargingIcon.Visibility + " opacity=" + ChargingIcon.Opacity);
+            StartChargingBreath();
+        }
+        else
+        {
+            ChargingIcon.BeginAnimation(OpacityProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ChargingIcon.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            ChargingScale.ScaleX = 1;
+            ChargingScale.ScaleY = 1;
+            ChargingIcon.Opacity = 1;
+            ChargingIcon.Visibility = Visibility.Collapsed;
+            LG("FALSE->vis=" + ChargingIcon.Visibility);
+        }
+        Update();
+    }
+
+    private static void LG(string m)
+        => System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsh_charge.log"), DateTime.Now.ToString("HH:mm:ss.fff ") + m + "\r\n");
+
+    /// <summary>常驻充电状态：闪电做柔和呼吸（0.6↔1.0），表示正在充电。仅调不透明度，不影响可见性。</summary>
+    private void StartChargingBreath()
+    {
+        // 若已拔电则不再启动呼吸
+        if (!_charging || ChargingIcon.Visibility != Visibility.Visible) return;
+        ChargingIcon.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0.6, 1.0, TimeSpan.FromMilliseconds(900))
+            {
+                AutoReverse = true,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+                RepeatBehavior = RepeatBehavior.Forever,
+            });
     }
 
     /// <summary>设置媒体活动（null 表示无媒体，回到时钟；cover 为迷你专辑封面，可空）。</summary>
