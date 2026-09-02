@@ -99,11 +99,25 @@ internal static class NativeMethods
     public const int WM_EXITSIZEMOVE = 0x0232;
     public const int HTCAPTION = 2;
 
+    // ---- 置顶保持 ----
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_SHOWWINDOW = 0x0040;
+
     [DllImport("user32.dll")]
     public static extern bool ReleaseCapture();
 
     [DllImport("user32.dll")]
     public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>强制把窗口置于 Z 序最顶层（不抢焦点、不改变位置尺寸）。</summary>
+    public static void KeepTopmost(IntPtr hwnd)
+        => SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
     // ---- 操作方法 ----
 

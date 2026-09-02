@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly BatteryService _battery = new();
     private readonly ForegroundWatcher _foreground = new();
     private readonly DispatcherTimer _progressTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly DispatcherTimer _topmostTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private TrayIcon? _tray;
     private GlobalMouseHook? _mouseHook;
     private bool _fullscreen;
@@ -86,6 +87,10 @@ public partial class MainWindow : Window
 
         // 应用已保存的主题设置
         ApplyThemeSettings();
+
+        // 保持始终置顶：周期性强制置于 Z 序最顶层（不抢焦点、不改变位置尺寸）
+        _topmostTimer.Tick += (_, _) => NativeMethods.KeepTopmost(hwnd);
+        _topmostTimer.Start();
 
         // 启动各服务
         _themeScheduler.Start();
