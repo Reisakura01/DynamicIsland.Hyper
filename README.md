@@ -1,4 +1,4 @@
-# DynamicIsland.Hyper
+# HyperMoeland
 
 > **Hyper 灵动岛** —— Windows 11 上的 iOS 风格 Dynamic Island（灵动岛）实现。
 > 顶部居中的深/浅胶囊常驻显示，点击展开成卡片，自动跟随系统媒体、通知、电量。
@@ -16,7 +16,7 @@
 | 📊 **播放进度** | 进度条跟随播放前进 + `已播 / 总时长`；**可点击进度条跳转**（源支持时） |
 | 📩 **通知** | 读取系统 Toast **正文**（发送人 + 消息），胶囊暂时显示「📩 App · 发送人：内容」，几秒后复原 |
 | 🔋 **电量** | 展开卡片显示电量百分比 |
-| 🌗 **日夜自动切换** | 默认 6:00–18:00 浅色胶囊，其余夜间深色胶囊；随时可改 |
+| 🌗 **日夜自动切换** | 默认 6:00–19:00 浅色胶囊，其余夜间深色胶囊；随时可改 |
 | 🖥️ **全屏自动隐藏** | 前台窗口全屏（视频/游戏）时自动隐藏岛，退出全屏恢复 |
 | 🖥️ **多显示器跟随** | 自动跟随前台窗口所在屏幕 |
 | 📌 **系统托盘** | 托盘菜单提供**开机自启**开关 + 退出（岛窗口不进任务栏） |
@@ -50,11 +50,11 @@
 ## 🚀 构建与运行
 
 1. 安装 **VS2026 Community**（或 VS2022+），勾选 **.NET 10 SDK** 与 **Windows SDK 10.0.26100**；
-2. 用 VS 打开 `DynamicIsland.Hyper.sln`；
+2. 用 VS 打开 `HyperMoeland.sln`；
 3. **Ctrl+Shift+B** 编译，或直接 **F5** 运行。
 
 运行后：顶部中央出现胶囊（显示时间），点击展开成卡片，再点收回；
-播放音乐时胶囊显示封面+曲名；到 18:00 自动切深色，早 6:00 切回浅色。
+播放音乐时胶囊显示封面+曲名；到 19:00 自动切深色，早 6:00 切回浅色。
 首次运行通知功能会弹"允许访问通知"的系统询问，点**允许**即可。
 
 ---
@@ -62,13 +62,13 @@
 ## 🏗️ 项目结构
 
 ```
-DynamicIsland.Hyper/
-├── DynamicIsland.Hyper.sln
+HyperMoeland/
+├── HyperMoeland.sln
 ├── README.md
 ├── 项目目录.md
 ├── .gitignore
-└── DynamicIsland.Hyper/
-    ├── DynamicIsland.Hyper.csproj   # net10.0-windows10.0.26100.0 + UseWPF + UseWindowsForms
+└── HyperMoeland/
+    ├── HyperMoeland.csproj   # net10.0-windows10.0.26100.0 + UseWPF + UseWindowsForms
     ├── App.xaml(.cs)                # 入口 + 主题画刷默认值
     ├── MainWindow.xaml(.cs)         # 岛窗口：透明置顶 + 动画 + 所有服务接线
     ├── Core/
