@@ -14,6 +14,7 @@ internal sealed class MediaService : IDisposable
     private GlobalSystemMediaTransportControlsSession? _session;
     private double _lastRawPos = -1;
     private DateTime _lastRawTime;
+    private readonly System.Threading.SemaphoreSlim _refreshLock = new(1, 1);
 
     /// <summary>媒体会话变化（null 表示当前无会话）。</summary>
     public event Action<MediaSessionInfo?>? SessionChanged;
@@ -41,22 +42,35 @@ internal sealed class MediaService : IDisposable
 
     private async Task RefreshAsync()
     {
-        var session = _manager?.GetCurrentSession();
-        AttachSession(session);
-        if (session is null)
+        // 串行化：避免多个 WinRT 事件并发触发导致旧会话覆盖新会话、UI 显示错标题
+        await _refreshLock.WaitAsync();
+        try
         {
-            SessionChanged?.Invoke(null);
-            return;
+            var session = _manager?.GetCurrentSession();
+            AttachSession(session);
+            if (session is null)
+            {
+                SessionChanged?.Invoke(null);
+                return;
+            }
+
+            var props = await session.TryGetMediaPropertiesAsync();
+            var playback = session.GetPlaybackInfo();
+
+            SessionChanged?.Invoke(new MediaSessionInfo(
+                props?.Title ?? string.Empty,
+                props?.Artist ?? string.Empty,
+                props?.Thumbnail,
+                playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing));
         }
-
-        var props = await session.TryGetMediaPropertiesAsync();
-        var playback = session.GetPlaybackInfo();
-
-        SessionChanged?.Invoke(new MediaSessionInfo(
-            props?.Title ?? string.Empty,
-            props?.Artist ?? string.Empty,
-            props?.Thumbnail,
-            playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing));
+        catch
+        {
+            // 单路刷新失败不影响其它路（避免 UI 停在旧状态）
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
     }
 
     // ---- 播放控制（展开卡片控制按钮调用；无会话时静默忽略） ----
@@ -64,19 +78,22 @@ internal sealed class MediaService : IDisposable
     public async Task TogglePlayPauseAsync()
     {
         if (_session is null) return;
-        await _session.TryTogglePlayPauseAsync();
+        try { await _session.TryTogglePlayPauseAsync(); }
+        catch { }
     }
 
     public async Task SkipNextAsync()
     {
         if (_session is null) return;
-        await _session.TrySkipNextAsync();
+        try { await _session.TrySkipNextAsync(); }
+        catch { }
     }
 
     public async Task SkipPreviousAsync()
     {
         if (_session is null) return;
-        await _session.TrySkipPreviousAsync();
+        try { await _session.TrySkipPreviousAsync(); }
+        catch { }
     }
 
     /// <summary>跳转到指定进度（秒）。源支持才生效，否则静默忽略。</summary>

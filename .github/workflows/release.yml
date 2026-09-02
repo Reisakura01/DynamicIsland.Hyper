@@ -27,3 +27,4 @@ jobs:
         with:
           files: publish/DynamicIsland.Hyper.exe
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

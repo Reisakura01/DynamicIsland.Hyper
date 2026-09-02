@@ -6,3 +6,11 @@ public enum AppTheme
     Day,
     Night,
 }
+
+/// <summary>主题偏好：自动（按时间）/ 强制浅色 / 强制深色。</summary>
+public enum ThemePreference
+{
+    Auto,
+    Light,
+    Dark,
+}

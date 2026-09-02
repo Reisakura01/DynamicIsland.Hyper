@@ -13,6 +13,7 @@ using DynamicIsland.Hyper.Interop;
 using DynamicIsland.Hyper.Models;
 using DynamicIsland.Hyper.Services;
 using DynamicIsland.Hyper.Theme;
+using DynamicIsland.Hyper.Views;
 
 namespace DynamicIsland.Hyper;
 
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
     private TrayIcon? _tray;
     private bool _fullscreen;
     private bool _mediaActive;
+    private int _mediaSeq;
 
     // 拖拽状态（系统级拖拽：位移超阈值后交给系统标题栏拖拽）
     private bool _systemDragging;
@@ -80,22 +82,49 @@ public partial class MainWindow : Window
         // 初始定位到紧凑胶囊（无动画）
         PositionCompact(animate: false);
 
+        // 应用已保存的主题设置
+        ApplyThemeSettings();
+
         // 启动各服务
         _themeScheduler.Start();
         _battery.Start();
         _foreground.Start();
         _tray = new TrayIcon();
+        _tray.OpenSettings += OpenSettingsWindow;
         _progressTimer.Start();
 
-        _ = CheckForUpdatesAsync();   // 启动后检查 GitHub 是否有新版本
+        if (SettingsService.Current.AutoUpdate)
+            _ = CheckForUpdatesAsync();   // 启动后检查 GitHub 是否有新版本
 
         _ = InitializeWinRtServicesAsync();
     }
 
     private async System.Threading.Tasks.Task InitializeWinRtServicesAsync()
     {
-        await _media.InitializeAsync();          // 媒体会话
-        await _notifications.InitializeAsync();  // 系统通知（首次弹权限）
+        // 各自独立 try/catch：媒体初始化失败不影响通知（反之亦然）
+        try { await _media.InitializeAsync(); } catch { }
+        try { await _notifications.InitializeAsync(); } catch { }
+    }
+
+    /// <summary>应用已保存的主题设置（模式 + 日夜间小时）。</summary>
+    private void ApplyThemeSettings()
+    {
+        var s = SettingsService.Current;
+        _themeScheduler.Mode = s.ThemeMode;
+        _themeScheduler.DayStartHour = Math.Clamp(s.DayStartHour, 0, 23);
+        _themeScheduler.NightStartHour = Math.Clamp(s.NightStartHour, 0, 23);
+        _themeScheduler.ApplyNow();
+    }
+
+    /// <summary>打开设置窗口；保存后重新应用设置。</summary>
+    private void OpenSettingsWindow()
+    {
+        var win = new SettingsWindow { Owner = this };
+        if (win.ShowDialog() == true)
+        {
+            ApplyThemeSettings();
+            AutoStart.Set(SettingsService.Current.AutoStart);
+        }
     }
 
     /// <summary>启动后检查 GitHub 是否有新版本，有新版本则托盘气泡提示。</summary>
@@ -194,6 +223,7 @@ public partial class MainWindow : Window
 
     private async void OnMediaChangedOnUi(MediaSessionInfo? info)
     {
+        int seq = ++_mediaSeq;   // 会话序号：用于丢弃旧会话迟到的封面
         bool hasMedia = info is not null && !string.IsNullOrWhiteSpace(info.Title);
         _mediaActive = hasMedia;
 
@@ -212,8 +242,9 @@ public partial class MainWindow : Window
             Pill.SetMedia(text, null);
             Card.SetMedia(title, artist, null, info.IsPlaying);
 
-            // 封面异步单独加载，拿到后再补上
+            // 封面异步单独加载，拿到后再补上；若期间已切到别的媒体，丢弃旧封面
             var cover = await LoadCoverAsync(info.Thumbnail);
+            if (seq != _mediaSeq) return;
             if (cover is not null)
             {
                 Pill.SetMedia(text, cover);

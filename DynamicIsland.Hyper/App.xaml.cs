@@ -9,7 +9,8 @@ public partial class App : Application
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
-        // 首次运行自动开启开机自启（托盘里关闭过就不再自动开）
-        AutoStart.EnsureOnFirstRun();
+        // 加载设置并应用开机自启
+        SettingsService.Load();
+        AutoStart.Set(SettingsService.Current.AutoStart);
     }
 }
