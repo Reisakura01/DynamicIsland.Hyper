@@ -306,10 +306,10 @@ public partial class ExpandedCard : UserControl
     {
         var now = DateTime.Now;
         TimeText.Text = now.ToString("HH:mm:ss");
-        // 日期按语言：中文"2026年9月2日 星期三"，英文"Wednesday, September 2, 2026"
+        // 日期按语言：中文"2026年9月2日 星期三"，英文"Wed, Sep 2, 2026"（缩写，避免溢出）
         DateText.Text = LocalizationService.Current == Models.AppLanguage.Chinese
             ? now.ToString("yyyy年M月d日 dddd")
-            : now.ToString("dddd, MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
+            : now.ToString("ddd, MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
