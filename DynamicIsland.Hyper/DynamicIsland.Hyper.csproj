@@ -14,6 +14,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>DynamicIsland.Hyper</RootNamespace>
     <AssemblyName>DynamicIsland.Hyper</AssemblyName>
+    <ApplicationIcon>App.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!--
