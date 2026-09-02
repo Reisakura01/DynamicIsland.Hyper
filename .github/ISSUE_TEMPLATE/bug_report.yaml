@@ -1,0 +1,48 @@
+name: Bug report
+description: 汇报一个 bug
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 简要描述问题现象
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 启动应用
+        2. 播放音乐 / 收通知
+        3. 点击展开卡片
+        4. 看到错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你希望看到什么
+
+  - type: textarea
+    id: media
+    attributes:
+      label: 媒体源 / 应用
+      description: 播放用的应用（网易云/浏览器/Spotify 等）——进度条问题尤其需要这个
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志/报错
+      description: 如有报错堆栈或截图，粘贴到这里
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows 版本 / 构建
+      description: 例如 Windows 11 23H2 (22631)、25H2
