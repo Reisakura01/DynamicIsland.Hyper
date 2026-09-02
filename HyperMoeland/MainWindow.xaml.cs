@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly ForegroundWatcher _foreground = new();
     private readonly DispatcherTimer _progressTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _topmostTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _notificationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private TrayIcon? _tray;
     private GlobalMouseHook? _mouseHook;
     private bool _fullscreen;
@@ -88,8 +89,9 @@ public partial class MainWindow : Window
         // 应用已保存的主题设置
         ApplyThemeSettings();
 
-        // 保持始终置顶：周期性强制置于 Z 序最顶层（不抢焦点、不改变位置尺寸）
-        _topmostTimer.Tick += (_, _) => NativeMethods.KeepTopmost(hwnd);
+        // 保持始终置顶：周期性强制置于 Z 序最顶层（不抢焦点、不改变位置尺寸）。
+        // 全屏隐藏时不置顶，避免与 Hide() 冲突。
+        _topmostTimer.Tick += (_, _) => { if (!_fullscreen) NativeMethods.KeepTopmost(hwnd); };
         _topmostTimer.Start();
 
         // 启动各服务
@@ -98,9 +100,12 @@ public partial class MainWindow : Window
         _foreground.Start();
         _tray = new TrayIcon();
         _tray.OpenSettings += OpenSettingsWindow;
+        _tray.TestNotification += () => OnNotificationAdded(LocalizationService.T("Notif.Test"));
         _mouseHook = new GlobalMouseHook();
         _mouseHook.LeftButtonDown += OnGlobalLeftDown;
         _progressTimer.Start();
+        _notificationTimer.Tick += async (_, _) => await _notifications.PollAsync();
+        _notificationTimer.Start();
 
         if (SettingsService.Current.AutoUpdate)
             _ = CheckForUpdatesAsync();   // 启动后检查 GitHub 是否有新版本
@@ -112,7 +117,16 @@ public partial class MainWindow : Window
     {
         // 各自独立 try/catch：媒体初始化失败不影响通知（反之亦然）
         try { await _media.InitializeAsync(); } catch { }
-        try { await _notifications.InitializeAsync(); } catch { }
+
+        // 通知：轮询方案无需订阅事件，直接在任意线程 await 即可。
+        // 授权失败时提示用户去系统设置开启"通知访问权限"。
+        try
+        {
+            bool ok = await _notifications.InitializeAsync();
+            if (!ok && _tray is not null)
+                _tray.ShowUpdate(LocalizationService.T("Notif.PermissionHint"), string.Empty);
+        }
+        catch { }
     }
 
     /// <summary>应用已保存的主题设置（模式 + 日夜间小时）。</summary>

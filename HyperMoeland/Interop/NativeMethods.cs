@@ -115,9 +115,20 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 
-    /// <summary>强制把窗口置于 Z 序最顶层（不抢焦点、不改变位置尺寸）。</summary>
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
+    /// <summary>
+    /// 为进程设置稳定的 AUMID（AppUserModelID）。无打包 Win32 应用必须显式设置，
+    /// 否则 UserNotificationListener.NotificationChanged 订阅会报 0x80070490 (ERROR_NOT_FOUND)。
+    /// </summary>
+    public static void SetAppUserModelId(string appId)
+        => SetCurrentProcessExplicitAppUserModelID(appId);
+
+    /// <summary>强制把窗口置于 Z 序最顶层（不抢焦点、不改变位置尺寸、不强制显示）。
+    /// 注意：不带 SWP_SHOWWINDOW，否则会把 Hide() 隐藏的窗口（全屏隐藏）又显示出来。</summary>
     public static void KeepTopmost(IntPtr hwnd)
-        => SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        => SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
     // ---- 操作方法 ----
 

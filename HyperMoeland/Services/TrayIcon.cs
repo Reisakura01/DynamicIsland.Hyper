@@ -12,6 +12,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _settingsItem;
     private readonly ToolStripMenuItem _autoStartItem;
+    private readonly ToolStripMenuItem _testNotifItem;
     private readonly ToolStripMenuItem _exitItem;
     private bool _updateConnected;
 
@@ -20,6 +21,9 @@ internal sealed class TrayIcon : IDisposable
 
     /// <summary>点击"设置"菜单触发。</summary>
     public event Action? OpenSettings;
+
+    /// <summary>点击"测试通知"菜单触发（用于验证通知展示）。</summary>
+    public event Action? TestNotification;
 
     public TrayIcon()
     {
@@ -52,6 +56,11 @@ internal sealed class TrayIcon : IDisposable
         };
         menu.Items.Add(_autoStartItem);
 
+        // 测试通知（验证通知展示链路）
+        _testNotifItem = new ToolStripMenuItem { Padding = new Padding(10, 7, 10, 7) };
+        _testNotifItem.Click += (_, _) => TestNotification?.Invoke();
+        menu.Items.Add(_testNotifItem);
+
         // 退出
         _exitItem = new ToolStripMenuItem { Padding = new Padding(10, 7, 10, 7) };
         _exitItem.Click += (_, _) => System.Windows.Application.Current.Shutdown();
@@ -76,6 +85,7 @@ internal sealed class TrayIcon : IDisposable
     {
         _settingsItem.Text = LocalizationService.T("Tray.OpenSettings");
         _autoStartItem.Text = LocalizationService.T("Tray.AutoStart");
+        _testNotifItem.Text = LocalizationService.T("Tray.TestNotif");
         _exitItem.Text = LocalizationService.T("Tray.Exit");
         _icon.Text = LocalizationService.T("Tray.Tooltip");
     }

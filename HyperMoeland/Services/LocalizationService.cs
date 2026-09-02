@@ -38,6 +38,7 @@ internal static class LocalizationService
         // ---- 托盘菜单 ----
         ["Tray.OpenSettings"]     = ("打开设置", "Settings"),
         ["Tray.AutoStart"]        = ("开机自启", "Launch at startup"),
+        ["Tray.TestNotif"]        = ("测试通知", "Test notification"),
         ["Tray.Exit"]             = ("退出", "Exit"),
         ["Tray.Tooltip"]          = ("HyperMoeland", "HyperMoeland"),
         ["Tray.UpdateBalloon"]    = ("发现新版本 v{0}，点击下载更新", "New version v{0} available — click to download"),
@@ -52,6 +53,8 @@ internal static class LocalizationService
 
         // ---- 通知 ----
         ["Notif.UnknownApp"]      = ("通知", "Notification"),
+        ["Notif.Test"]            = ("📩 HyperMoeland · 这是一条测试通知，通知功能正常", "📩 HyperMoeland · This is a test notification — notifications work!"),
+        ["Notif.PermissionHint"]  = ("请在系统设置中开启通知访问权限：设置 → 系统 → 通知 → 通知访问权限 → 打开 HyperMoeland", "Enable notification access: Settings → System → Notifications → Notification access → enable HyperMoeland"),
     };
 
     public static string T(string key)
