@@ -1,0 +1,349 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Windows.Storage.Streams;
+using DynamicIsland.Hyper.Core;
+using DynamicIsland.Hyper.Interop;
+using DynamicIsland.Hyper.Models;
+using DynamicIsland.Hyper.Services;
+using DynamicIsland.Hyper.Theme;
+
+namespace DynamicIsland.Hyper;
+
+/// <summary>
+/// Hyper 灵动岛主窗口：透明、置顶、不抢焦点、不进任务栏。
+/// 胶囊可拖拽（松手后吸附 左/中/右），点击展开成卡片；
+/// 日间浅色云母 / 夜间深色云母自动切换；全屏自动隐藏；多显示器跟随。
+/// </summary>
+public partial class MainWindow : Window
+{
+    /// <summary>区分点击与拖拽的位移阈值（逻辑像素）。</summary>
+    private const double DragThreshold = 4.0;
+
+    private readonly IslandController _controller = new();
+    private readonly ThemeScheduler _themeScheduler = new();
+    private readonly MediaService _media = new();
+    private readonly NotificationService _notifications = new();
+    private readonly BatteryService _battery = new();
+    private readonly ForegroundWatcher _foreground = new();
+    private readonly DispatcherTimer _progressTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private TrayIcon? _tray;
+    private bool _fullscreen;
+    private bool _mediaActive;
+
+    // 拖拽状态（系统级拖拽：位移超阈值后交给系统标题栏拖拽）
+    private bool _systemDragging;
+    private Point _dragStartInWindow;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+
+        _controller.StateChanged += OnStateChanged;
+        _themeScheduler.ThemeChanged += OnThemeChanged;
+        _media.SessionChanged += OnMediaChanged;
+        _battery.ChargePercentChanged += OnBatteryChanged;
+        _notifications.NotificationAdded += OnNotificationAdded;
+        _foreground.FullscreenChanged += OnFullscreenChanged;
+        _foreground.MonitorChanged += OnMonitorChanged;
+
+        Card.Clicked += (_, _) => _controller.Collapse();
+        Card.PlayPauseClicked += async (_, _) => await _media.TogglePlayPauseAsync();
+        Card.NextClicked += async (_, _) => await _media.SkipNextAsync();
+        Card.PreviousClicked += async (_, _) => await _media.SkipPreviousAsync();
+        _progressTimer.Tick += (_, _) => UpdateProgress();
+        Card.SeekRequested += async (sec) => await _media.SeekAsync(sec);
+
+        // 胶囊：按下=可能拖拽，抬起=未拖动则视为点击展开
+        Pill.PreviewMouseLeftButtonDown += OnIslandMouseDown;
+        Pill.PreviewMouseMove += OnIslandMouseMove;
+        Pill.PreviewMouseLeftButtonUp += OnIslandMouseUp;
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        // 应用云母 + 圆角 + 不抢焦点（此时窗口句柄已创建）
+        MicaController.Apply(this, ThemeManager.Current == AppTheme.Night);
+
+        // 监听 WM_EXITSIZEMOVE：系统拖拽结束后吸附到边缘
+        var hwnd = new WindowInteropHelper(this).Handle;
+        HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+
+        // 初始定位到紧凑胶囊（无动画）
+        PositionCompact(animate: false);
+
+        // 启动各服务
+        _themeScheduler.Start();
+        _battery.Start();
+        _foreground.Start();
+        _tray = new TrayIcon();
+        _progressTimer.Start();
+
+        _ = InitializeWinRtServicesAsync();
+    }
+
+    private async System.Threading.Tasks.Task InitializeWinRtServicesAsync()
+    {
+        await _media.InitializeAsync();          // 媒体会话
+        await _notifications.InitializeAsync();  // 系统通知（首次弹权限）
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        _tray?.Dispose();
+        _media.Dispose();
+        _notifications.Dispose();
+        _battery.Dispose();
+        _foreground.Stop();
+    }
+
+    // ---- 拖拽与点击 ----
+
+    private void OnIslandMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _systemDragging = false;
+        _dragStartInWindow = e.GetPosition(this);
+    }
+
+    private void OnIslandMouseMove(object sender, MouseEventArgs e)
+    {
+        // 系统已接管拖拽，或左键未按下：直接返回
+        if (_systemDragging || e.LeftButton != MouseButtonState.Pressed) return;
+
+        var pos = e.GetPosition(this);
+        var dx = pos.X - _dragStartInWindow.X;
+        var dy = pos.Y - _dragStartInWindow.Y;
+
+        // 位移小于阈值视为点击，不进入拖拽
+        if (Math.Abs(dx) < DragThreshold && Math.Abs(dy) < DragThreshold) return;
+
+        // 超过阈值：交给系统标题栏拖拽（透明窗口上 CaptureMouse 不可靠）
+        _systemDragging = true;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.ReleaseCapture();
+        NativeMethods.SendMessage(hwnd, NativeMethods.WM_NCLBUTTONDOWN, (IntPtr)NativeMethods.HTCAPTION, IntPtr.Zero);
+    }
+
+    private void OnIslandMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        // 系统拖拽中：松手由 WM_EXITSIZEMOVE 处理吸附
+        if (_systemDragging) return;
+        _controller.Toggle(); // 未拖动 = 点击展开
+    }
+
+    /// <summary>窗口消息钩子：系统拖拽结束（WM_EXITSIZEMOVE）后吸附到 左/中/右。</summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == NativeMethods.WM_EXITSIZEMOVE && _systemDragging)
+        {
+            _systemDragging = false;
+            SnapToEdges();
+        }
+        return IntPtr.Zero;
+    }
+
+    /// <summary>拖拽结束吸附：顶部对齐，水平方向吸到 左/中/右 最近一侧。</summary>
+    private void SnapToEdges()
+    {
+        var work = MonitorHelper.GetPrimaryWorkArea();
+        double scale = DpiScale;
+        double workX = work.X / scale;
+        double workW = work.Width / scale;
+        double workY = work.Y / scale;
+
+        double[] xs =
+        {
+            workX + 8,                                   // 左
+            workX + (workW - Width) / 2,                 // 中
+            workX + workW - Width - 8,                   // 右
+        };
+        double targetX = xs.OrderBy(x => Math.Abs(x - Left)).First();
+
+        var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
+        BeginAnimation(LeftProperty, new DoubleAnimation(targetX, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+        BeginAnimation(TopProperty, new DoubleAnimation(workY, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+    }
+
+    // ---- 主题 / 服务事件 ----
+
+    private void OnThemeChanged(AppTheme theme)
+        => MicaController.SetTheme(this, theme == AppTheme.Night);
+
+    /// <summary>媒体会话变化（SMTC 事件可能在非 UI 线程触发）：先封送到 UI 线程再处理。</summary>
+    private void OnMediaChanged(MediaSessionInfo? info)
+        => Dispatcher.InvokeAsync(() => OnMediaChangedOnUi(info));
+
+    private async void OnMediaChangedOnUi(MediaSessionInfo? info)
+    {
+        bool hasMedia = info is not null && !string.IsNullOrWhiteSpace(info.Title);
+        _mediaActive = hasMedia;
+
+        if (!hasMedia)
+        {
+            Pill.SetMedia(null);
+            Card.SetMedia(null);
+        }
+        else
+        {
+            var title = info!.Title;
+            var artist = info.Artist;
+            var text = string.IsNullOrWhiteSpace(artist) ? title : $"{title} · {artist}";
+
+            // 先立即显示标题（封面流读取可能卡住，不能阻塞标题显示）
+            Pill.SetMedia(text, null);
+            Card.SetMedia(title, artist, null, info.IsPlaying);
+
+            // 封面异步单独加载，拿到后再补上
+            var cover = await LoadCoverAsync(info.Thumbnail);
+            if (cover is not null)
+            {
+                Pill.SetMedia(text, cover);
+                Card.SetMedia(title, artist, cover, info.IsPlaying);
+            }
+        }
+
+        // 展开状态下，媒体有无会改变卡片尺寸，需要重新定位
+        if (_controller.State == IslandState.Expanded && !_fullscreen)
+            PositionExpanded();
+    }
+
+    /// <summary>把 WinRT 封面流解码成 WPF BitmapImage（失败返回 null，不影响主流程）。</summary>
+    private static async System.Threading.Tasks.Task<BitmapImage?> LoadCoverAsync(IRandomAccessStreamReference? thumb)
+    {
+        if (thumb is null) return null;
+        try
+        {
+            using var ras = await thumb.OpenReadAsync();
+            using var ms = new MemoryStream();
+            await ras.AsStreamForRead().CopyToAsync(ms);
+            ms.Position = 0;
+
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.StreamSource = ms;
+            bmp.EndInit();
+            bmp.Freeze();
+            return bmp;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>电量变化（WinRT 事件可能在非 UI 线程触发）：封送到 UI 线程再更新。</summary>
+    private void OnBatteryChanged(double percent)
+        => Dispatcher.InvokeAsync(() => Card.SetBattery(percent));
+
+    /// <summary>每 500ms 把媒体播放进度推给卡片（小米式时间轴）。</summary>
+    private void UpdateProgress()
+    {
+        var p = _media.GetProgress();
+        if (p is null) Card.SetProgress(null, null);
+        else Card.SetProgress(p.Value.Position, p.Value.Duration);
+    }
+
+    /// <summary>新通知（WinRT 事件可能在非 UI 线程触发）：封送到 UI 线程，胶囊和卡片同步显示。</summary>
+    private void OnNotificationAdded(string text)
+        => Dispatcher.InvokeAsync(() =>
+        {
+            Pill.ShowNotification(text);
+            Card.ShowNotification(text);
+        });
+
+    private void OnFullscreenChanged(bool fullscreen)
+    {
+        _fullscreen = fullscreen;
+        if (fullscreen) Hide();
+        else Show();
+    }
+
+    private void OnMonitorChanged(WorkArea work)
+    {
+        if (_fullscreen) return;
+        Reposition(work);
+    }
+
+    private void OnStateChanged(IslandState state)
+    {
+        bool expanding = state == IslandState.Expanded;
+        Card.Visibility = expanding ? Visibility.Visible : Visibility.Collapsed;
+        Pill.Visibility = expanding ? Visibility.Collapsed : Visibility.Visible;
+
+        if (expanding) PositionExpanded();
+        else PositionCompact();
+    }
+
+    // ---- 定位（DPI 感知） ----
+
+    /// <summary>当前窗口 DPI 缩放（物理像素 → 逻辑像素的除数，150% 缩放时 = 1.5）。</summary>
+    private double DpiScale
+        => NativeMethods.GetDpiForWindow(new WindowInteropHelper(this).Handle) / 96.0;
+
+    /// <summary>按当前状态 + 是否有媒体计算窗口尺寸（音乐面板比时钟卡大很多）。</summary>
+    private (double W, double H) SizeFor()
+        => _controller.State == IslandState.Expanded
+            ? (_mediaActive
+                ? (IslandMetrics.MediaExpandedWidth, IslandMetrics.MediaExpandedHeight)
+                : (IslandMetrics.ExpandedWidth, IslandMetrics.ExpandedHeight))
+            : (IslandMetrics.CompactWidth, IslandMetrics.CompactHeight);
+
+    private void Reposition(WorkArea work)
+    {
+        var (w, h) = SizeFor();
+        AnimateTo(work, w, h, animate: true);
+    }
+
+    private void PositionCompact(bool animate = true)
+    {
+        var (w, h) = SizeFor();
+        AnimateTo(MonitorHelper.GetPrimaryWorkArea(), w, h, animate);
+    }
+
+    private void PositionExpanded(bool animate = true)
+    {
+        var (w, h) = SizeFor();
+        AnimateTo(MonitorHelper.GetPrimaryWorkArea(), w, h, animate);
+    }
+
+    private void AnimateTo(WorkArea work, double width, double height, bool animate)
+    {
+        // 关键：工作区来自 GetMonitorInfo（物理像素），而 WPF 的
+        // Left/Top/Width/Height 是逻辑像素（DIP）。必须按 DPI 换算，
+        // 否则高缩放屏幕下窗口会偏到右侧（表现为"卡在右上角"）。
+        double scale = DpiScale;
+        double workX = work.X / scale;
+        double workW = work.Width / scale;
+        double workY = work.Y / scale;
+
+        double left = workX + (workW - width) / 2;
+        double top = workY;
+
+        if (!animate)
+        {
+            Left = left;
+            Top = top;
+            Width = width;
+            Height = height;
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(240);
+        var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
+
+        BeginAnimation(LeftProperty, new DoubleAnimation(left, duration) { EasingFunction = ease });
+        BeginAnimation(TopProperty, new DoubleAnimation(top, duration) { EasingFunction = ease });
+        BeginAnimation(WidthProperty, new DoubleAnimation(width, duration) { EasingFunction = ease });
+        BeginAnimation(HeightProperty, new DoubleAnimation(height, duration) { EasingFunction = ease });
+    }
+}
