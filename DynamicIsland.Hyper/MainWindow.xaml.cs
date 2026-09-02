@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly ForegroundWatcher _foreground = new();
     private readonly DispatcherTimer _progressTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private TrayIcon? _tray;
+    private GlobalMouseHook? _mouseHook;
     private bool _fullscreen;
     private bool _mediaActive;
     private int _mediaSeq;
@@ -91,6 +92,8 @@ public partial class MainWindow : Window
         _foreground.Start();
         _tray = new TrayIcon();
         _tray.OpenSettings += OpenSettingsWindow;
+        _mouseHook = new GlobalMouseHook();
+        _mouseHook.LeftButtonDown += OnGlobalLeftDown;
         _progressTimer.Start();
 
         if (SettingsService.Current.AutoUpdate)
@@ -138,6 +141,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        _mouseHook?.Dispose();
         _tray?.Dispose();
         _media.Dispose();
         _notifications.Dispose();
@@ -207,9 +211,10 @@ public partial class MainWindow : Window
         };
         double targetX = xs.OrderBy(x => Math.Abs(x - Left)).First();
 
-        var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
-        BeginAnimation(LeftProperty, new DoubleAnimation(targetX, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
-        BeginAnimation(TopProperty, new DoubleAnimation(workY, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+        // 平滑缓动（比 QuinticEase 温和，且是标准 EasingFunction 能可靠缩放透明窗口）
+        var ease = new SineEase { EasingMode = EasingMode.EaseOut };
+        BeginAnimation(LeftProperty, new DoubleAnimation { To = targetX, Duration = TimeSpan.FromMilliseconds(180), EasingFunction = ease, FillBehavior = FillBehavior.HoldEnd });
+        BeginAnimation(TopProperty, new DoubleAnimation { To = workY, Duration = TimeSpan.FromMilliseconds(180), EasingFunction = ease, FillBehavior = FillBehavior.HoldEnd });
     }
 
     // ---- 主题 / 服务事件 ----
@@ -309,6 +314,22 @@ public partial class MainWindow : Window
         else Show();
     }
 
+    /// <summary>全局左键按下：展开态下点在岛窗口外任意处 → 自动缩回胶囊。</summary>
+    private void OnGlobalLeftDown(System.Drawing.Point p)
+    {
+        if (_controller.State != IslandState.Expanded || _fullscreen) return;
+        if (IsPointInsideWindow(p.X, p.Y)) return; // 在岛内：交给岛自己处理（控件/点击）
+        _controller.Collapse();
+    }
+
+    /// <summary>指定屏幕物理坐标是否落在岛窗口内。</summary>
+    private bool IsPointInsideWindow(int x, int y)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.GetWindowRect(hwnd, out var r);
+        return x >= r.Left && x <= r.Right && y >= r.Top && y <= r.Bottom;
+    }
+
     private void OnMonitorChanged(WorkArea work)
     {
         if (_fullscreen) return;
@@ -323,6 +344,13 @@ public partial class MainWindow : Window
 
         if (expanding) PositionExpanded();
         else PositionCompact();
+
+        // 尺寸瞬间定位（不缩放透明窗口），改做内容快速淡入，既可靠又顺滑
+        var target = expanding ? (System.Windows.UIElement)Card : (System.Windows.UIElement)Pill;
+        target.Opacity = 0;
+        target.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))
+            { EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut } });
     }
 
     // ---- 定位（DPI 感知） ----
@@ -370,21 +398,12 @@ public partial class MainWindow : Window
         double left = workX + (workW - width) / 2;
         double top = workY;
 
-        if (!animate)
-        {
-            Left = left;
-            Top = top;
-            Width = width;
-            Height = height;
-            return;
-        }
-
-        var duration = TimeSpan.FromMilliseconds(240);
-        var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
-
-        BeginAnimation(LeftProperty, new DoubleAnimation(left, duration) { EasingFunction = ease });
-        BeginAnimation(TopProperty, new DoubleAnimation(top, duration) { EasingFunction = ease });
-        BeginAnimation(WidthProperty, new DoubleAnimation(width, duration) { EasingFunction = ease });
-        BeginAnimation(HeightProperty, new DoubleAnimation(height, duration) { EasingFunction = ease });
+        // 直接设置尺寸/位置：透明窗口的尺寸动画既卡又不稳（缩回易卡住），
+        // 故不用 BeginAnimation，改为瞬间定位，由 OnStateChanged 做内容淡入。
+        Left = left;
+        Top = top;
+        Width = width;
+        Height = height;
     }
 }
+
