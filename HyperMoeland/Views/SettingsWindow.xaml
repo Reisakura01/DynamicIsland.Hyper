@@ -1,7 +1,7 @@
 <Window x:Class="HyperMoeland.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Hyper 灵动岛 · 设置"
+        Title="HyperMoeland · 设置"
         Width="420" Height="600"
         WindowStyle="SingleBorderWindow"
         ResizeMode="NoResize"
@@ -229,7 +229,7 @@
         <!-- 头部 -->
         <Grid Grid.Row="0">
             <StackPanel>
-                <TextBlock Text="Hyper 灵动岛" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextStrong}"/>
+                <TextBlock Text="HyperMoeland" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextStrong}"/>
                 <TextBlock Text="HyperMoeland · 设置" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
             </StackPanel>
         </Grid>

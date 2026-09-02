@@ -18,7 +18,7 @@ using HyperMoeland.Views;
 namespace HyperMoeland;
 
 /// <summary>
-/// Hyper 灵动岛主窗口：透明、置顶、不抢焦点、不进任务栏。
+/// HyperMoeland主窗口：透明、置顶、不抢焦点、不进任务栏。
 /// 胶囊可拖拽（松手后吸附 左/中/右），点击展开成卡片；
 /// 日间浅色云母 / 夜间深色云母自动切换；全屏自动隐藏；多显示器跟随。
 /// </summary>

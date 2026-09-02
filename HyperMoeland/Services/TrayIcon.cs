@@ -65,7 +65,7 @@ internal sealed class TrayIcon : IDisposable
         _icon = new NotifyIcon
         {
             Icon = icon,
-            Text = "Hyper 灵动岛",
+            Text = "HyperMoeland",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -87,7 +87,7 @@ internal sealed class TrayIcon : IDisposable
     /// <summary>托盘气泡显示"发现新版本"，点击打开下载页。</summary>
     public void ShowUpdate(string message, string url)
     {
-        _icon.ShowBalloonTip(8000, "Hyper 灵动岛", message, ToolTipIcon.Info);
+        _icon.ShowBalloonTip(8000, "HyperMoeland", message, ToolTipIcon.Info);
         if (!_updateConnected)
         {
             _updateConnected = true;
