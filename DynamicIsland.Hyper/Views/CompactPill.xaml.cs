@@ -46,7 +46,6 @@ public partial class CompactPill : UserControl
             ChargingScale.ScaleY = 1;
             ChargingIcon.Opacity = 1;
             ChargingIcon.Visibility = Visibility.Visible;
-            LG("TRUE->vis=" + ChargingIcon.Visibility + " opacity=" + ChargingIcon.Opacity);
             StartChargingBreath();
         }
         else
@@ -58,13 +57,9 @@ public partial class CompactPill : UserControl
             ChargingScale.ScaleY = 1;
             ChargingIcon.Opacity = 1;
             ChargingIcon.Visibility = Visibility.Collapsed;
-            LG("FALSE->vis=" + ChargingIcon.Visibility);
         }
         Update();
     }
-
-    private static void LG(string m)
-        => System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsh_charge.log"), DateTime.Now.ToString("HH:mm:ss.fff ") + m + "\r\n");
 
     /// <summary>常驻充电状态：闪电做柔和呼吸（0.6↔1.0），表示正在充电。仅调不透明度，不影响可见性。</summary>
     private void StartChargingBreath()
