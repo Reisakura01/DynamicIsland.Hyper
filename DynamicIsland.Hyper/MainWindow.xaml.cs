@@ -87,6 +87,8 @@ public partial class MainWindow : Window
         _tray = new TrayIcon();
         _progressTimer.Start();
 
+        _ = CheckForUpdatesAsync();   // 启动后检查 GitHub 是否有新版本
+
         _ = InitializeWinRtServicesAsync();
     }
 
@@ -94,6 +96,14 @@ public partial class MainWindow : Window
     {
         await _media.InitializeAsync();          // 媒体会话
         await _notifications.InitializeAsync();  // 系统通知（首次弹权限）
+    }
+
+    /// <summary>启动后检查 GitHub 是否有新版本，有新版本则托盘气泡提示。</summary>
+    private async System.Threading.Tasks.Task CheckForUpdatesAsync()
+    {
+        var upd = await UpdateChecker.CheckAsync();
+        if (upd is null || _tray is null) return;
+        _tray.ShowUpdate($"发现新版本 v{upd.Value.Version}，点击下载更新", upd.Value.Url);
     }
 
     protected override void OnClosed(EventArgs e)

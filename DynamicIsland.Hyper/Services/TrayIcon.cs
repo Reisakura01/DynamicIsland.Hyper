@@ -8,6 +8,7 @@ namespace DynamicIsland.Hyper.Services;
 internal sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
+    private bool _updateConnected;
 
     public TrayIcon()
     {
@@ -26,6 +27,23 @@ internal sealed class TrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
+    }
+
+    /// <summary>托盘气泡显示"发现新版本"，点击打开下载页。</summary>
+    public void ShowUpdate(string message, string url)
+    {
+        _icon.ShowBalloonTip(8000, "Hyper 灵动岛", message, ToolTipIcon.Info);
+        if (!_updateConnected)
+        {
+            _updateConnected = true;
+            _icon.BalloonTipClicked += (_, _) => OpenUrl(url);
+        }
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { }
     }
 
     public void Dispose()
