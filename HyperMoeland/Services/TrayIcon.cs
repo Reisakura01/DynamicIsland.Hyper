@@ -10,6 +10,9 @@ namespace HyperMoeland.Services;
 internal sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
+    private readonly ToolStripMenuItem _settingsItem;
+    private readonly ToolStripMenuItem _autoStartItem;
+    private readonly ToolStripMenuItem _exitItem;
     private bool _updateConnected;
 
     private static readonly Color TextColor = Color.FromArgb(0x1B, 0x1B, 0x1B);
@@ -30,35 +33,29 @@ internal sealed class TrayIcon : IDisposable
         };
 
         // 打开设置
-        var settings = new ToolStripMenuItem("打开设置")
-        {
-            Padding = new Padding(10, 7, 10, 7),
-        };
-        settings.Click += (_, _) => OpenSettings?.Invoke();
-        menu.Items.Add(settings);
+        _settingsItem = new ToolStripMenuItem { Padding = new Padding(10, 7, 10, 7) };
+        _settingsItem.Click += (_, _) => OpenSettings?.Invoke();
+        menu.Items.Add(_settingsItem);
 
         // 开机自启
-        var autoStart = new ToolStripMenuItem("开机自启")
+        _autoStartItem = new ToolStripMenuItem
         {
             Padding = new Padding(10, 7, 10, 7),
             Checked = AutoStart.IsEnabled(),
         };
-        autoStart.Click += (_, _) =>
+        _autoStartItem.Click += (_, _) =>
         {
             AutoStart.Set(!AutoStart.IsEnabled());
             SettingsService.Current.AutoStart = AutoStart.IsEnabled();
             SettingsService.Save();
-            autoStart.Checked = AutoStart.IsEnabled();
+            _autoStartItem.Checked = AutoStart.IsEnabled();
         };
-        menu.Items.Add(autoStart);
+        menu.Items.Add(_autoStartItem);
 
         // 退出
-        var exit = new ToolStripMenuItem("退出")
-        {
-            Padding = new Padding(10, 7, 10, 7),
-        };
-        exit.Click += (_, _) => System.Windows.Application.Current.Shutdown();
-        menu.Items.Add(exit);
+        _exitItem = new ToolStripMenuItem { Padding = new Padding(10, 7, 10, 7) };
+        _exitItem.Click += (_, _) => System.Windows.Application.Current.Shutdown();
+        menu.Items.Add(_exitItem);
 
         var icon = LoadAppIcon() ?? SystemIcons.Application;
 
@@ -69,6 +66,18 @@ internal sealed class TrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
+
+        // 语言切换时刷新菜单文字
+        LocalizationService.LanguageChanged += ApplyLanguage;
+        ApplyLanguage();
+    }
+
+    private void ApplyLanguage()
+    {
+        _settingsItem.Text = LocalizationService.T("Tray.OpenSettings");
+        _autoStartItem.Text = LocalizationService.T("Tray.AutoStart");
+        _exitItem.Text = LocalizationService.T("Tray.Exit");
+        _icon.Text = LocalizationService.T("Tray.Tooltip");
     }
 
     /// <summary>从可执行文件提取应用图标（App.ico 由 ApplicationIcon 编译进 exe）。
@@ -87,7 +96,7 @@ internal sealed class TrayIcon : IDisposable
     /// <summary>托盘气泡显示"发现新版本"，点击打开下载页。</summary>
     public void ShowUpdate(string message, string url)
     {
-        _icon.ShowBalloonTip(8000, "HyperMoeland", message, ToolTipIcon.Info);
+        _icon.ShowBalloonTip(8000, LocalizationService.T("Tray.Tooltip"), message, ToolTipIcon.Info);
         if (!_updateConnected)
         {
             _updateConnected = true;

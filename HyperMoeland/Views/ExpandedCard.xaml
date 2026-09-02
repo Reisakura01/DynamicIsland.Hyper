@@ -158,7 +158,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Button Style="{StaticResource MediaControlButton}"
+                    <Button x:Name="LikeButton"
+                            Style="{StaticResource MediaControlButton}"
                             Grid.Column="0"
                             ToolTip="喜欢"
                             Click="OnLikeClicked">
@@ -167,7 +168,8 @@
                               Fill="{DynamicResource Theme.Foreground}"
                               Width="22" Height="22" Stretch="Uniform" />
                     </Button>
-                    <Button Style="{StaticResource MediaControlButton}"
+                    <Button x:Name="PreviousButton"
+                            Style="{StaticResource MediaControlButton}"
                             Grid.Column="1"
                             ToolTip="上一首"
                             Click="OnPreviousClicked">
@@ -185,7 +187,8 @@
                               Fill="{DynamicResource Theme.Foreground}"
                               Width="22" Height="22" Stretch="Uniform" />
                     </Button>
-                    <Button Style="{StaticResource MediaControlButton}"
+                    <Button x:Name="NextButton"
+                            Style="{StaticResource MediaControlButton}"
                             Grid.Column="3"
                             ToolTip="下一首"
                             Click="OnNextClicked">

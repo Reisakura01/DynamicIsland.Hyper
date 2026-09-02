@@ -43,6 +43,18 @@ public partial class ExpandedCard : UserControl
         _neonTimer.Tick += (_, _) => PulseNeon();
         ProgressTrack.SizeChanged += (_, _) => ApplyProgressRatio();
         UpdateClock();
+        ApplyLanguage();
+        LocalizationService.LanguageChanged += ApplyLanguage;
+    }
+
+    /// <summary>刷新卡片上所有本地化文字（ToolTip、电量、日期）。</summary>
+    private void ApplyLanguage()
+    {
+        LikeButton.ToolTip = LocalizationService.T("Card.Like");
+        PreviousButton.ToolTip = LocalizationService.T("Card.Previous");
+        PlayPauseButton.ToolTip = LocalizationService.T("Card.PlayPause");
+        NextButton.ToolTip = LocalizationService.T("Card.Next");
+        UpdateClock();
     }
 
     /// <summary>为每个配色层生成一幅"带抖动的霓虹渐变位图"（消除 8bit 渐变带/摩尔纹），并铺满整层。</summary>
@@ -242,7 +254,9 @@ public partial class ExpandedCard : UserControl
 
     /// <summary>设置电量显示。</summary>
     public void SetBattery(double? percent)
-        => BatteryText.Text = percent is double p ? $"电量 {p:0}%" : "电量 --";
+        => BatteryText.Text = percent is double p
+            ? LocalizationService.T("Card.Battery", $"{p:0}")
+            : LocalizationService.T("Card.BatteryUnknown");
 
     private bool _charging;
 
@@ -292,7 +306,10 @@ public partial class ExpandedCard : UserControl
     {
         var now = DateTime.Now;
         TimeText.Text = now.ToString("HH:mm:ss");
-        DateText.Text = now.ToString("yyyy年M月d日 dddd");
+        // 日期按语言：中文"2026年9月2日 星期三"，英文"Wednesday, September 2, 2026"
+        DateText.Text = LocalizationService.Current == Models.AppLanguage.Chinese
+            ? now.ToString("yyyy年M月d日 dddd")
+            : now.ToString("dddd, MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

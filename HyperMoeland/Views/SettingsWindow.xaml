@@ -230,7 +230,7 @@
         <Grid Grid.Row="0">
             <StackPanel>
                 <TextBlock Text="HyperMoeland" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextStrong}"/>
-                <TextBlock Text="HyperMoeland · 设置" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                <TextBlock x:Name="SubtitleText" Text="HyperMoeland · 设置" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
             </StackPanel>
         </Grid>
 
@@ -243,13 +243,13 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Ellipse Width="10" Height="10" Fill="#FF9F45" VerticalAlignment="Center"/>
-                            <TextBlock Text="主题" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
+                            <TextBlock x:Name="ThemeTitleText" Text="主题" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="模式" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock x:Name="ModeLabel" Text="模式" Style="{StaticResource FieldLabel}"/>
                         <ComboBox x:Name="ThemeModeBox" Style="{StaticResource RoundCombo}">
-                            <ComboBoxItem Content="自动（按时间）"/>
-                            <ComboBoxItem Content="强制浅色"/>
-                            <ComboBoxItem Content="强制深色"/>
+                            <ComboBoxItem x:Name="ModeAutoItem" Content="自动（按时间）"/>
+                            <ComboBoxItem x:Name="ModeLightItem" Content="强制浅色"/>
+                            <ComboBoxItem x:Name="ModeDarkItem" Content="强制深色"/>
                         </ComboBox>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
@@ -258,11 +258,11 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="日间开始" Style="{StaticResource FieldLabel}" Margin="0,0,0,5"/>
+                                <TextBlock x:Name="DayStartLabel" Text="日间开始" Style="{StaticResource FieldLabel}" Margin="0,0,0,5"/>
                                 <ComboBox x:Name="DayStartBox" Style="{StaticResource RoundCombo}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="夜间开始" Style="{StaticResource FieldLabel}" Margin="0,0,0,5"/>
+                                <TextBlock x:Name="NightStartLabel" Text="夜间开始" Style="{StaticResource FieldLabel}" Margin="0,0,0,5"/>
                                 <ComboBox x:Name="NightStartBox" Style="{StaticResource RoundCombo}"/>
                             </StackPanel>
                         </Grid>
@@ -274,10 +274,15 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Ellipse Width="10" Height="10" Fill="#4F8CFF" VerticalAlignment="Center"/>
-                            <TextBlock Text="系统" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
+                            <TextBlock x:Name="SystemTitleText" Text="系统" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
                         </StackPanel>
                         <CheckBox x:Name="AutoStartCheck" Content="开机自启" Style="{StaticResource ModernCheck}"/>
                         <CheckBox x:Name="AutoUpdateCheck" Content="启动时检查更新" Style="{StaticResource ModernCheck}"/>
+                        <TextBlock x:Name="LanguageLabel" Text="语言" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="LanguageBox" Style="{StaticResource RoundCombo}">
+                            <ComboBoxItem x:Name="LangChineseItem" Content="中文"/>
+                            <ComboBoxItem x:Name="LangEnglishItem" Content="English"/>
+                        </ComboBox>
                     </StackPanel>
                 </Border>
 
@@ -286,9 +291,9 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Ellipse Width="10" Height="10" Fill="#8B5CF6" VerticalAlignment="Center"/>
-                            <TextBlock Text="霓虹动画" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
+                            <TextBlock x:Name="NeonTitleText" Text="霓虹动画" Style="{StaticResource GroupTitle}" Margin="8,0,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="卡片霓虹背景的节拍快慢，播放音乐时生效" FontSize="12" Foreground="{StaticResource TextMuted}"/>
+                        <TextBlock x:Name="NeonHintText" Text="卡片霓虹背景的节拍快慢，播放音乐时生效" FontSize="12" Foreground="{StaticResource TextMuted}"/>
                         <DockPanel Margin="0,12,0,0" Height="22">
                             <TextBlock x:Name="NeonSpeedLabel"
                                        DockPanel.Dock="Right"
@@ -316,10 +321,10 @@
 
         <!-- 底部按钮 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="取消" Width="90" Height="36" Margin="0,0,10,0" Click="OnCancel"
+            <Button x:Name="CancelButton" Content="取消" Width="90" Height="36" Margin="0,0,10,0" Click="OnCancel"
                     Background="White" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" Foreground="{StaticResource TextStrong}"
                     Cursor="Hand" FontSize="13"/>
-            <Button Content="保存" Width="90" Height="36" IsDefault="True" Click="OnSave"
+            <Button x:Name="SaveButton" Content="保存" Width="90" Height="36" IsDefault="True" Click="OnSave"
                     Background="{StaticResource Accent}" Foreground="White" BorderThickness="0"
                     Cursor="Hand" FontSize="13" FontWeight="SemiBold"/>
         </StackPanel>

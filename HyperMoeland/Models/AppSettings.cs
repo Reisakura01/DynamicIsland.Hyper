@@ -22,4 +22,7 @@ public class AppSettings
 
     /// <summary>霓虹动画节拍间隔（毫秒，越小越快），默认 900。</summary>
     public int NeonSpeedMs { get; set; } = 900;
+
+    /// <summary>界面语言，默认中文。</summary>
+    public AppLanguage Language { get; set; } = AppLanguage.Chinese;
 }

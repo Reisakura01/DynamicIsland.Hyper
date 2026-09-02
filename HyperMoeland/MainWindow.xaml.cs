@@ -136,7 +136,7 @@ public partial class MainWindow : Window
     {
         var upd = await UpdateChecker.CheckAsync();
         if (upd is null || _tray is null) return;
-        _tray.ShowUpdate($"发现新版本 v{upd.Value.Version}，点击下载更新", upd.Value.Url);
+        _tray.ShowUpdate(LocalizationService.T("Tray.UpdateBalloon", upd.Value.Version), upd.Value.Url);
     }
 
     protected override void OnClosed(EventArgs e)

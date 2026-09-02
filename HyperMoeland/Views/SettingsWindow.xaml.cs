@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using HyperMoeland.Models;
 using HyperMoeland.Services;
@@ -7,13 +6,22 @@ using HyperMoeland.Theme;
 
 namespace HyperMoeland.Views;
 
-/// <summary>设置窗口：主题模式 / 日夜间 / 自启 / 自动更新。</summary>
+/// <summary>设置窗口：主题模式 / 日夜间 / 自启 / 自动更新 / 语言。</summary>
 public partial class SettingsWindow : Window
 {
     public SettingsWindow()
     {
         InitializeComponent();
         Populate();
+        ApplyLanguage();
+        LanguageBox.SelectionChanged += (_, _) =>
+        {
+            // 选择语言时立即刷新整个窗口文字，保存后持久化
+            LocalizationService.SetLanguage(LanguageBox.SelectedIndex == 1
+                ? AppLanguage.English
+                : AppLanguage.Chinese);
+            ApplyLanguage();
+        };
     }
 
     private void Populate()
@@ -39,6 +47,30 @@ public partial class SettingsWindow : Window
         AutoUpdateCheck.IsChecked = s.AutoUpdate;
         NeonSpeedSlider.Value = Math.Clamp(s.NeonSpeedMs, 400, 2000);
         NeonSpeedLabel.Text = s.NeonSpeedMs + "ms";
+
+        LanguageBox.SelectedIndex = s.Language == AppLanguage.English ? 1 : 0;
+    }
+
+    /// <summary>按当前语言刷新所有界面文字。</summary>
+    private void ApplyLanguage()
+    {
+        Title = LocalizationService.T("Settings.Title");
+        SubtitleText.Text = LocalizationService.T("Settings.Title");
+        ThemeTitleText.Text = LocalizationService.T("Settings.Theme");
+        ModeLabel.Text = LocalizationService.T("Settings.Mode");
+        ModeAutoItem.Content = LocalizationService.T("Settings.ModeAuto");
+        ModeLightItem.Content = LocalizationService.T("Settings.ModeLight");
+        ModeDarkItem.Content = LocalizationService.T("Settings.ModeDark");
+        DayStartLabel.Text = LocalizationService.T("Settings.DayStart");
+        NightStartLabel.Text = LocalizationService.T("Settings.NightStart");
+        SystemTitleText.Text = LocalizationService.T("Settings.System");
+        AutoStartCheck.Content = LocalizationService.T("Settings.AutoStart");
+        AutoUpdateCheck.Content = LocalizationService.T("Settings.AutoUpdate");
+        LanguageLabel.Text = LocalizationService.T("Settings.Language");
+        NeonTitleText.Text = LocalizationService.T("Settings.Neon");
+        NeonHintText.Text = LocalizationService.T("Settings.NeonHint");
+        CancelButton.Content = LocalizationService.T("Settings.Cancel");
+        SaveButton.Content = LocalizationService.T("Settings.Save");
     }
 
     private void OnNeonSpeedChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -58,6 +90,7 @@ public partial class SettingsWindow : Window
         s.AutoStart = AutoStartCheck.IsChecked == true;
         s.AutoUpdate = AutoUpdateCheck.IsChecked == true;
         s.NeonSpeedMs = (int)NeonSpeedSlider.Value;
+        s.Language = LanguageBox.SelectedIndex == 1 ? AppLanguage.English : AppLanguage.Chinese;
 
         SettingsService.Save();
         DialogResult = true;
@@ -66,6 +99,8 @@ public partial class SettingsWindow : Window
 
     private void OnCancel(object sender, RoutedEventArgs e)
     {
+        // 取消：把语言恢复到已保存的值（选择语言时是即时预览，不保存应回滚）
+        LocalizationService.SetLanguage(SettingsService.Current.Language);
         DialogResult = false;
         Close();
     }

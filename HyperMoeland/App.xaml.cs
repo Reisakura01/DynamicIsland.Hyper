@@ -9,8 +9,9 @@ public partial class App : Application
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
-        // 加载设置并应用开机自启
+        // 加载设置并应用开机自启 + 语言
         SettingsService.Load();
         AutoStart.Set(SettingsService.Current.AutoStart);
+        LocalizationService.SetLanguage(SettingsService.Current.Language);
     }
 }
