@@ -60,7 +60,7 @@
             <Border x:Name="NeonBack"
                     CornerRadius="28"
                     Visibility="Collapsed"
-                    Opacity="0.32"
+                    Opacity="0.4"
                     ClipToBounds="True">
                 <Grid>
                     <Border x:Name="NeonLayer0" CornerRadius="28" Opacity="1" />

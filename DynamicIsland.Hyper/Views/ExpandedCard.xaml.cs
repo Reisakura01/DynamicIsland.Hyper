@@ -122,9 +122,9 @@ public partial class ExpandedCard : UserControl
             var dur = TimeSpan.FromMilliseconds(Math.Clamp(SettingsService.Current.NeonSpeedMs, 400, 2000));
             _neonTimer.Interval = dur;
             if (!_neonTimer.IsEnabled) _neonTimer.Start();
-            // 连续平滑呼吸（正弦缓动，幅度更小、更舒缓，避免每帧透明度大幅起伏）
+            // 连续平滑呼吸（正弦缓动；幅度稍放大到 0.32↔0.42，在浅色卡片上也能清晰看到下半部发光）
             NeonBack.BeginAnimation(UIElement.OpacityProperty,
-                new DoubleAnimation(0.30, 0.34, dur)
+                new DoubleAnimation(0.32, 0.42, dur)
                 {
                     AutoReverse = true,
                     EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
